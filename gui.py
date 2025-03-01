@@ -1,8 +1,47 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
+import yaml
 
-# Set global style settings for CustomTkinter
+from extract_commands import extract_name
+
+# Suppose you place extract_commands.py in the same folder and import its functions
+# If you prefer, you can inline or replicate the logic below
+# from extract_commands import extract_commands, run_commands, extract_name
+
+####################
+# Dummy placeholders 
+####################
+
+def extract_commands(config_path):
+    """
+    Reads the YAML configuration file and extracts all install commands.
+    Returns a list of commands.
+    """
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+
+    commands = []
+    for section in ["package_managers", "environment", "developer_tools"]:
+        if section in config:
+            for _, details in config[section].items():
+                command = details.get("install_command")
+                if command:
+                    commands.append(command)
+    return commands
+
+def run_commands(commands):
+    """
+    Executes a list of commands (just printing here for demo).
+    """
+    for cmd in commands:
+        print(f"Running command: {cmd}")
+    print("All commands run (demo).")
+
+
+###################################
+# Main HabitatApp and Pages
+###################################
 ctk.set_appearance_mode("System")   # "System", "Dark", "Light"
 ctk.set_default_color_theme("blue") # "blue", "green", "dark-blue"
 
@@ -11,25 +50,26 @@ class HabitatApp(ctk.CTk):
         super().__init__()
         self.title("Habitat")
         
-        # Set fixed window size and disable resizing
+        # Fixed window size
         self.geometry("600x400")
         self.resizable(False, False)
 
-        # Create container for pages
+        # This list will hold the software we want to install:
+        self.software_cart = []
+        self.names = []
+
+        # Container for pages
         container = ctk.CTkFrame(self, corner_radius=0)
         container.pack(fill="both", expand=True)
 
-        # Dictionary to hold references to each page
         self.frames = {}
 
-        # Initialize each page and store in frames
-        for Page in (WelcomePage, NodePage, SoftwarePage):
+        for Page in (WelcomePage, CreatePage, CartPage):
             page_name = Page.__name__
             frame = Page(parent=container, controller=self)
             self.frames[page_name] = frame
             frame.grid(row=0, column=0, sticky="nsew")
 
-        # Show the Welcome page by default
         self.show_frame("WelcomePage")
 
     def show_frame(self, page_name: str):
@@ -37,155 +77,223 @@ class HabitatApp(ctk.CTk):
         frame = self.frames[page_name]
         frame.tkraise()
 
+    def add_to_cart(self, item):
+        """Add a given item (string or dict) to the software cart."""
+        self.software_cart.append(item)
+    
+        # Force update the cart icon (count) if we're on CreatePage
+        create_page = self.frames["CreatePage"]
+        create_page.update_cart_icon()
+
+    def add_to_names(self, name):
+        """Add a given name to the names list."""
+        self.names.append(name)
+    
+    def clear_cart(self):
+        """Utility to clear the cart if needed."""
+        self.software_cart.clear()
+        self.names.clear() 
+
 
 class WelcomePage(ctk.CTkFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        # "Welcome to Habitat" label
-        self.title_label = ctk.CTkLabel(
+        title_label = ctk.CTkLabel(
             self,
             text="Welcome to Habitat",
             font=ctk.CTkFont(size=24, weight="bold")
         )
-        self.title_label.pack(pady=30)
+        title_label.pack(pady=30)
 
-        # "Create" button
-        self.create_button = ctk.CTkButton(
+        # Create button
+        create_button = ctk.CTkButton(
             self,
             text="Create",
-            command=self.go_to_node_page
+            command=lambda: controller.show_frame("CreatePage")
         )
-        self.create_button.pack(pady=10)
+        create_button.pack(pady=10)
 
-        # "Import" button
-        self.import_button = ctk.CTkButton(
+        # Import button
+        import_button = ctk.CTkButton(
             self,
             text="Import",
             command=self.import_file
         )
-        self.import_button.pack(pady=10)
-
-    def go_to_node_page(self):
-        """Navigate to the NodePage."""
-        self.controller.show_frame("NodePage")
+        import_button.pack(pady=10)
 
     def import_file(self):
-        """Open a file dialog to import a file with software/dependencies."""
+        """
+        Open a file dialog to import only a YAML file.
+        If user selects a valid YAML, parse it and store in the cart,
+        then go to the CartPage to show the user what is about to be installed.
+        """
         file_path = filedialog.askopenfilename(
-            title="Import Dependencies",
-            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
+            title="Import Dependencies (.yaml only)",
+            filetypes=[("YAML Files", "*.yaml"), ("All Files", "*.*")]
         )
-        if file_path:
-            # You can read the file, parse dependencies, etc.
-            print(f"Imported file: {file_path}")
-            # After importing, navigate to NodePage or any other logic you need
-            self.controller.show_frame("NodePage")
+
+        if not file_path:
+            # User cancelled
+            return
+
+        # Check file extension
+        if not file_path.lower().endswith(".yaml"):
+            messagebox.showerror("Error", "Please select a .yaml file.")
+            return
+
+        try:
+            # Clear any existing cart items
+            self.controller.clear_cart()
+
+            # Extract commands from the YAML
+            names = extract_name(file_path)
+            commands = extract_commands(file_path)
+            # For demonstration, let's store them as strings in the cart
+            if commands:
+                for cmd in commands:
+                    self.controller.add_to_cart(cmd)
+            else:
+                messagebox.showinfo("No Commands Found", "No install commands found in YAML.")
+
+            if names:
+                for name in names:
+                    self.controller.add_to_names(name)
+            else: 
+                messagebox.showinfo("No Names Found", "No names found in YAML.")
+
+            # Go to CartPage to see what we have
+            self.controller.show_frame("CartPage")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to parse YAML: {e}")
 
 
-class NodePage(ctk.CTkFrame):
+class CreatePage(ctk.CTkFrame):
+    """
+    A page that shows some popular libraries as clickable items and
+    a text entry for custom libraries. 
+    A 'cart' button in the top-right corner shows how many items are in the cart.
+    """
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        # Search bar
-        self.search_entry = ctk.CTkEntry(
-            self,
-            placeholder_text="Search for a node..."
-        )
-        self.search_entry.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+        # Top frame for search and cart
+        top_frame = ctk.CTkFrame(self)
+        top_frame.pack(fill="x", pady=10)
 
-        # "Cart" icon placeholder (you can replace this with an actual image)
-        self.cart_button = ctk.CTkButton(
-            self,
-            text="Cart",
-            command=self.go_to_software_page
-        )
-        self.cart_button.grid(row=0, column=1, padx=10, pady=20)
+        # Search entry for custom libraries
+        self.search_entry = ctk.CTkEntry(top_frame, placeholder_text="Type a library/framework...")
+        self.search_entry.pack(side="left", padx=10)
 
-        # Node list frame
-        self.node_list_frame = ctk.CTkFrame(self)
-        self.node_list_frame.grid(row=1, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
+        # "Add" button 
+        add_button = ctk.CTkButton(top_frame, text="Add", command=self.add_custom_library)
+        add_button.pack(side="left", padx=5)
 
-        # Example node placeholders (remove or replace as needed)
-        for i in range(5):
-            node_label = ctk.CTkLabel(self.node_list_frame, text=f"Node {i+1}")
-            node_label.pack(anchor="w", pady=2)
+        # Cart button on the right
+        self.cart_button = ctk.CTkButton(top_frame, text="Cart (0)", command=self.go_to_cart)
+        self.cart_button.pack(side="right", padx=10)
 
-        # Button to go back to welcome
-        self.back_button = ctk.CTkButton(
-            self,
-            text="Back to Welcome",
-            command=lambda: controller.show_frame("WelcomePage")
-        )
-        self.back_button.grid(row=2, column=0, columnspan=2, pady=10)
+        # A frame to display popular libraries
+        popular_frame = ctk.CTkFrame(self)
+        popular_frame.pack(fill="both", expand=True, pady=10)
 
-        # Make rows/columns responsive
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=0)
-        self.rowconfigure(1, weight=1)
+        ctk.CTkLabel(popular_frame, text="Popular Libraries:", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=5)
 
-    def go_to_software_page(self):
-        """Navigate to the SoftwarePage."""
-        self.controller.show_frame("SoftwarePage")
+        # Example popular libraries
+        self.popular_libraries = ["Node.js", "Python", "VSCode"]
+        for lib in self.popular_libraries:
+            btn = ctk.CTkButton(popular_frame, text=lib, command=lambda x=lib: self.add_popular_library(x))
+            btn.pack(pady=5)
+
+        # Back button
+        back_button = ctk.CTkButton(self, text="Back", command=lambda: controller.show_frame("WelcomePage"))
+        back_button.pack(pady=5)
+
+        # Update cart icon initially
+        self.update_cart_icon()
+
+    def add_popular_library(self, lib_name):
+        self.controller.add_to_names(lib_name)
+        # self.controller.add_to_cart(lib_name)
+        self.update_cart_icon()
+
+    def add_custom_library(self):
+        custom_lib = self.search_entry.get().strip()
+        if custom_lib:
+            self.controller.add_to_cart(custom_lib)
+            self.search_entry.delete(0, tk.END)
+            self.update_cart_icon()
+
+    def update_cart_icon(self):
+        count = len(self.controller.software_cart)
+        self.cart_button.configure(text=f"Cart ({count})")
+
+    def go_to_cart(self):
+        # Navigate to cart page
+        self.controller.show_frame("CartPage")
 
 
-class SoftwarePage(ctk.CTkFrame):
+class CartPage(ctk.CTkFrame):
+    """
+    Shows all items in the cart and has a "Run commands" button
+    to perform the installation (via run_commands).
+    """
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        # A label to indicate we are adding software packages
-        self.title_label = ctk.CTkLabel(
+        title_label = ctk.CTkLabel(
             self,
-            text="Add/Install Software Packages",
+            text="Shopping Cart",
             font=ctk.CTkFont(size=18, weight="bold")
         )
-        self.title_label.pack(pady=10)
+        title_label.pack(pady=10)
 
-        # Frame to hold software checkboxes (currently empty)
-        self.software_frame = ctk.CTkFrame(self)
-        self.software_frame.pack(pady=10, fill="both", expand=True)
+        # Scrollable frame to list items
+        self.scroll_frame = ctk.CTkScrollableFrame(self, width=500, height=200)
+        self.scroll_frame.pack(padx=10, pady=10, fill="both", expand=True)
 
-        # You can dynamically add checkboxes here once you parse your dependencies
-        # For now, it's empty to remove placeholder software
+        # Buttons at bottom
+        bottom_frame = ctk.CTkFrame(self)
+        bottom_frame.pack(fill="x", pady=10)
 
-        # Bottom frame with Run and Export
-        self.bottom_frame = ctk.CTkFrame(self)
-        self.bottom_frame.pack(fill="x", pady=10)
+        run_button = ctk.CTkButton(bottom_frame, text="Run commands", command=self.on_run_commands)
+        run_button.pack(side="left", padx=20)
 
-        self.run_button = ctk.CTkButton(
-            self.bottom_frame,
-            text="Run",
-            command=self.run_software_install
-        )
-        self.run_button.pack(side="left", padx=20)
+        back_button = ctk.CTkButton(bottom_frame, text="Back", command=self.on_back)
+        back_button.pack(side="right", padx=20)
 
-        self.export_button = ctk.CTkButton(
-            self.bottom_frame,
-            text="Export",
-            command=self.export_software_list
-        )
-        self.export_button.pack(side="left", padx=20)
+    def on_run_commands(self):
+        if self.controller.software_cart:
+            # In a real scenario, you might map these software items into actual
+            # commands. If you stored them as direct commands, just run them:
+            run_commands(self.controller.software_cart)
+            messagebox.showinfo("Done", "Commands executed (see console output).")
+        else:
+            messagebox.showinfo("Empty Cart", "No items to install.")
 
-        # Button to go back to NodePage
-        self.back_button = ctk.CTkButton(
-            self.bottom_frame,
-            text="Back",
-            command=lambda: controller.show_frame("NodePage")
-        )
-        self.back_button.pack(side="right", padx=20)
+    def on_back(self):
+        # If we "came" from CreatePage or from Import, user might want to go back there.
+        # For simplicity, let's always go back to CreatePage (but adapt as you need).
+        self.controller.show_frame("CreatePage")
 
-    def run_software_install(self):
-        """Run the installation commands for the selected software."""
-        # For now, there are no checkboxes, so there's nothing selected.
-        print("No software items to install. (Placeholder)")
+    def tkraise(self, aboveThis=None):
+        """
+        Override tkraise to dynamically rebuild the list whenever this page is shown.
+        """
+        # Clear existing items in scroll_frame
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
 
-    def export_software_list(self):
-        """Export the list of selected software to a file."""
-        # With no checkboxes, there's nothing to export here.
-        print("No software items to export. (Placeholder)")
+        # List out the items in the cart
+        for idx, item in enumerate(self.controller.names, start=1):
+            label = ctk.CTkLabel(self.scroll_frame, text=f"{idx}. {item}")
+            label.pack(anchor="w", pady=2)
+
+        super().tkraise(aboveThis)
 
 
 if __name__ == "__main__":

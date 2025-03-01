@@ -1,0 +1,6 @@
+package_managers:
+environment:
+  test:
+    version: "3.12.0"
+    install_command: "echo hi"
+developer_tools:
