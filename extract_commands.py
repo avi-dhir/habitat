@@ -2,9 +2,6 @@ import yaml
 import sys
 import subprocess
 
-
-
-
 def extract_commands(config_path):
     """
     Reads the YAML configuration file and extracts all install commands.
