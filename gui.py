@@ -2,22 +2,27 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
 
-# Global style settings for CustomTkinter
-ctk.set_appearance_mode("System")   # Modes: "System" (default), "Dark", "Light"
-ctk.set_default_color_theme("blue") # Themes: "blue" (default), "green", "dark-blue"
+# Set global style settings for CustomTkinter
+ctk.set_appearance_mode("System")   # "System", "Dark", "Light"
+ctk.set_default_color_theme("blue") # "blue", "green", "dark-blue"
 
 class HabitatApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Habitat")
-        self.geometry("600x400")
         
+        # Set fixed window size and disable resizing
+        self.geometry("600x400")
+        self.resizable(False, False)
+
+        # Create container for pages
         container = ctk.CTkFrame(self, corner_radius=0)
         container.pack(fill="both", expand=True)
 
+        # Dictionary to hold references to each page
         self.frames = {}
 
-        # Initialize each page and store in frames dict
+        # Initialize each page and store in frames
         for Page in (WelcomePage, NodePage, SoftwarePage):
             page_name = Page.__name__
             frame = Page(parent=container, controller=self)
@@ -75,7 +80,7 @@ class WelcomePage(ctk.CTkFrame):
         if file_path:
             # You can read the file, parse dependencies, etc.
             print(f"Imported file: {file_path}")
-            # After importing, maybe go to NodePage or some other logic:
+            # After importing, navigate to NodePage or any other logic you need
             self.controller.show_frame("NodePage")
 
 
@@ -91,7 +96,7 @@ class NodePage(ctk.CTkFrame):
         )
         self.search_entry.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
 
-        # "Cart" icon placeholder (can be replaced with an actual image)
+        # "Cart" icon placeholder (you can replace this with an actual image)
         self.cart_button = ctk.CTkButton(
             self,
             text="Cart",
@@ -103,7 +108,7 @@ class NodePage(ctk.CTkFrame):
         self.node_list_frame = ctk.CTkFrame(self)
         self.node_list_frame.grid(row=1, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
 
-        # Populate with a few placeholder nodes
+        # Example node placeholders (remove or replace as needed)
         for i in range(5):
             node_label = ctk.CTkLabel(self.node_list_frame, text=f"Node {i+1}")
             node_label.pack(anchor="w", pady=2)
@@ -139,22 +144,12 @@ class SoftwarePage(ctk.CTkFrame):
         )
         self.title_label.pack(pady=10)
 
-        # Frame to hold software checkboxes
+        # Frame to hold software checkboxes (currently empty)
         self.software_frame = ctk.CTkFrame(self)
         self.software_frame.pack(pady=10, fill="both", expand=True)
 
-        # Example software packages
-        self.software_vars = {}
-        software_list = ["Node.js", "Python", "Docker", "Git", "Nginx"]
-        for software in software_list:
-            var = tk.BooleanVar(value=False)
-            chk = ctk.CTkCheckBox(
-                self.software_frame,
-                text=software,
-                variable=var
-            )
-            chk.pack(anchor="w", pady=2)
-            self.software_vars[software] = var
+        # You can dynamically add checkboxes here once you parse your dependencies
+        # For now, it's empty to remove placeholder software
 
         # Bottom frame with Run and Export
         self.bottom_frame = ctk.CTkFrame(self)
@@ -184,26 +179,13 @@ class SoftwarePage(ctk.CTkFrame):
 
     def run_software_install(self):
         """Run the installation commands for the selected software."""
-        selected = [s for s, var in self.software_vars.items() if var.get()]
-        print(f"Installing: {selected}")
-        # Here you would actually run the install commands (subprocess, etc.)
+        # For now, there are no checkboxes, so there's nothing selected.
+        print("No software items to install. (Placeholder)")
 
     def export_software_list(self):
         """Export the list of selected software to a file."""
-        selected = [s for s, var in self.software_vars.items() if var.get()]
-        if selected:
-            export_path = filedialog.asksaveasfilename(
-                title="Export Software List",
-                defaultextension=".txt",
-                filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
-            )
-            if export_path:
-                with open(export_path, "w") as f:
-                    for software in selected:
-                        f.write(software + "\n")
-                print(f"Exported to: {export_path}")
-        else:
-            print("No software selected for export.")
+        # With no checkboxes, there's nothing to export here.
+        print("No software items to export. (Placeholder)")
 
 
 if __name__ == "__main__":
