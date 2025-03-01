@@ -79,21 +79,25 @@ class HabitatApp(ctk.CTk):
 
     def add_to_cart(self, item):
         """Add a given item (string or dict) to the software cart."""
-        self.software_cart.append(item)
+        if item not in self.software_cart:
+            self.software_cart.append(item)
     
         # Force update the cart icon (count) if we're on CreatePage
-        create_page = self.frames["CreatePage"]
-        create_page.update_cart_icon()
-
+            create_page = self.frames["CreatePage"]
+            create_page.update_cart_icon()
+        else:
+            messagebox.showinfo("Duplicate Entry", f"'{item}' is already in the cart.")
     def add_to_names(self, name):
         """Add a given name to the names list."""
-        self.names.append(name)
+        if name not in self.names:
+            self.names.append(name)
+        else:
+            messagebox.showinfo("Duplicate Entry", f"'{name}' is already in the list.")
     
     def clear_cart(self):
         """Utility to clear the cart if needed."""
         self.software_cart.clear()
         self.names.clear() 
-
 
 class WelcomePage(ctk.CTkFrame):
     def __init__(self, parent, controller):
@@ -217,7 +221,7 @@ class CreatePage(ctk.CTkFrame):
 
     def add_popular_library(self, lib_name):
         self.controller.add_to_names(lib_name)
-        # self.controller.add_to_cart(lib_name)
+        self.controller.add_to_cart(lib_name)
         self.update_cart_icon()
 
     def add_custom_library(self):
@@ -245,11 +249,7 @@ class CartPage(ctk.CTkFrame):
         super().__init__(parent)
         self.controller = controller
 
-        title_label = ctk.CTkLabel(
-            self,
-            text="Shopping Cart",
-            font=ctk.CTkFont(size=18, weight="bold")
-        )
+        title_label = ctk.CTkLabel(self, text="Shopping Cart", font=ctk.CTkFont(size=18, weight="bold"))
         title_label.pack(pady=10)
 
         # Scrollable frame to list items
@@ -266,33 +266,47 @@ class CartPage(ctk.CTkFrame):
         back_button = ctk.CTkButton(bottom_frame, text="Back", command=self.on_back)
         back_button.pack(side="right", padx=20)
 
+    def refresh_cart(self):
+        """ Refreshes the cart display dynamically """
+        # Clear previous items
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
+
+        # Display items with remove buttons
+        for idx, item in enumerate(self.controller.software_cart, start=1):
+            item_frame = ctk.CTkFrame(self.scroll_frame)
+            item_frame.pack(fill="x", pady=2, padx=5)
+
+            label = ctk.CTkLabel(item_frame, text=f"{idx}. {item}")
+            label.pack(side="left", padx=5)
+
+            remove_button = ctk.CTkButton(item_frame, text="Remove", width=80, command=lambda i=item: self.remove_from_cart(i))
+            remove_button.pack(side="right", padx=5)
+
+    def remove_from_cart(self, item):
+        """ Removes an item from the cart and updates the UI """
+        if item in self.controller.software_cart:
+            self.controller.software_cart.remove(item)
+            self.refresh_cart()  # Refresh UI
+            messagebox.showinfo("Removed", f"'{item}' was removed from the cart.")
+        else:
+            messagebox.showwarning("Not Found", f"'{item}' is not in the cart.")
+
     def on_run_commands(self):
+        """ Runs the installation commands for all selected software """
         if self.controller.software_cart:
-            # In a real scenario, you might map these software items into actual
-            # commands. If you stored them as direct commands, just run them:
             run_commands(self.controller.software_cart)
             messagebox.showinfo("Done", "Commands executed (see console output).")
         else:
             messagebox.showinfo("Empty Cart", "No items to install.")
 
     def on_back(self):
-        # If we "came" from CreatePage or from Import, user might want to go back there.
-        # For simplicity, let's always go back to CreatePage (but adapt as you need).
+        """ Navigates back to the previous page """
         self.controller.show_frame("CreatePage")
 
     def tkraise(self, aboveThis=None):
-        """
-        Override tkraise to dynamically rebuild the list whenever this page is shown.
-        """
-        # Clear existing items in scroll_frame
-        for widget in self.scroll_frame.winfo_children():
-            widget.destroy()
-
-        # List out the items in the cart
-        for idx, item in enumerate(self.controller.names, start=1):
-            label = ctk.CTkLabel(self.scroll_frame, text=f"{idx}. {item}")
-            label.pack(anchor="w", pady=2)
-
+        """ Overrides tkraise to update cart items dynamically """
+        self.refresh_cart()
         super().tkraise(aboveThis)
 
 
