@@ -39,6 +39,33 @@ def extract_tuples(config_path):
 
     return results
 
+def tuples_to_yaml(tuples_list, output_path):
+    """
+    Converts a list of (name, version, command) tuples back to a YAML configuration file.
+    Places all items in the "environment" section.
+    
+    Args:
+        tuples_list: List of (name, version, command) tuples
+        output_path: Path where the YAML file will be saved
+    """
+    config = {
+        "environment": {}
+    }
+    
+    for name, version, command in tuples_list:
+        if command and " | " in command:
+            command_list = command.split("\n")
+        else:
+            command_list = command
+            
+        config["environment"][name] = {
+            "version": version,
+            "install_command": command_list
+        }
+    with open(output_path, "w") as file:
+        yaml.dump(config, file, default_flow_style=False, sort_keys=False)
+    return config
+
 def run_commands(cart_items):
     """
     Executes the command from each tuple in cart_items.
@@ -584,6 +611,145 @@ class CartPage(ctk.CTkFrame):
 #     def tkraise(self, aboveThis=None):
 #         self.refresh_cart()
 #         super().tkraise(aboveThis)
+
+class CartPage(ctk.CTkFrame):
+    """
+    Displays (Name, Version) from the cart with editable version fields.
+    Updates automatically when a version is changed.
+    """
+    def __init__(self, parent, controller):
+        super().__init__(parent, corner_radius=0, border_width=0, fg_color="transparent")
+        self.controller = controller
+        self.version_entries = {}  # Store version entry widgets
+
+        title_label = ctk.CTkLabel(
+            self,
+            text="Shopping Cart",
+            font=ctk.CTkFont(size=15, weight="bold"),
+        )
+        title_label.pack(pady=(10, 6), anchor="center")
+
+        self.scroll_frame = ctk.CTkScrollableFrame(
+            self,
+            width=350,
+            corner_radius=0,
+            border_width=0,
+            fg_color="transparent",
+        )
+        self.scroll_frame.pack(padx=10, pady=(0, 6), fill="both", expand=True)
+
+        bottom_frame = ctk.CTkFrame(self, corner_radius=0, border_width=0, fg_color="transparent")
+        bottom_frame.pack(fill="x", pady=6)
+
+
+        run_button = ctk.CTkButton(
+            bottom_frame, text="Run", width=60, command=self.on_run_commands
+        )
+        run_button.pack(side="right", padx=(0, 20))
+        export_button = ctk.CTkButton(bottom_frame, text="Export", width=60, command=self.export_to_yaml)
+        export_button.pack(side="right", padx=(0, 10))
+        
+        back_button = ctk.CTkButton(
+            bottom_frame, text="Back", width=60, command=self.on_back
+        )
+        back_button.pack(side="left", padx=(20, 0))
+
+    def refresh_cart(self):
+        """Refreshes the cart display with Name + Editable Version."""
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
+            
+        self.version_entries.clear()
+
+        for idx, item in enumerate(self.controller.software_cart, start=1):
+            name, version, cmd = item
+            
+            item_frame = ctk.CTkFrame(
+                self.scroll_frame,
+                corner_radius=0,
+                border_width=0,
+                fg_color="transparent"
+            )
+            item_frame.pack(fill="x", pady=4, padx=15)
+
+            # Name label
+            name_label = ctk.CTkLabel(item_frame, text=f"{idx}. {name}")
+            name_label.pack(side="left", padx=5)
+            
+            # Version entry field
+            version_entry = ctk.CTkEntry(
+                item_frame, 
+                width=80,
+                justify="center"
+            )
+            version_entry.insert(0, version)
+            version_entry.pack(side="left", padx=5)
+            
+            # Bind focus-out event to auto-update version
+            version_entry.bind("<FocusOut>", lambda e, i=item, v=version_entry: self.update_version(i, v))
+
+            # Store the entry widget with reference to the item for updating later
+            self.version_entries[item] = version_entry
+
+            # Remove button
+            remove_button = ctk.CTkButton(
+                item_frame, text="X", width=25, command=lambda t=item: self.remove_from_cart(t)
+            )
+            remove_button.pack(side="right", padx=5)
+
+    def update_all_versions(self):
+        """Updates all item versions based on entry fields."""
+        new_cart = []
+        
+        # Iterate through current cart and get updated versions
+        for item, (entry_widget, idx) in self.version_entries.items():
+            name, _, cmd = item
+            new_version = entry_widget.get().strip() or "latest"
+            new_item = (name, new_version, cmd)
+            new_cart.append(new_item)
+        
+        # Replace the entire cart
+        if self.controller.software_cart == new_cart:
+            self.controller.software_cart = new_cart
+            self.refresh_cart()
+            return
+        messagebox.showinfo("Updated", "All versions have been updated.")
+    def remove_from_cart(self, tuple_item):
+        if tuple_item in self.controller.software_cart:
+            self.controller.software_cart.remove(tuple_item)
+            self.refresh_cart()
+            self.controller.frames["CreatePage"].update_cart_button()
+            messagebox.showinfo("Removed", f"'{tuple_item[0]}' was removed.")
+        else:
+            messagebox.showwarning("Not Found", "Item is not in the cart.")
+
+    def on_run_commands(self):
+        """Run commands with the latest versions."""
+        self.update_all_versions()
+
+        if self.controller.software_cart:
+            run_commands(self.controller.software_cart)
+            messagebox.showinfo("Done", "Commands executed (see console output).")
+        else:
+            messagebox.showinfo("Empty Cart", "No items to install.")
+
+    def on_back(self):
+        self.update_all_versions()
+
+        """Return to CreatePage with updated versions."""
+        self.controller.show_frame("CreatePage")
+        self.controller.frames["CreatePage"].update_cart_button()
+
+    def tkraise(self, aboveThis=None):
+        self.refresh_cart()
+        super().tkraise(aboveThis)
+        
+    def export_to_yaml(self):
+        if self.controller.software_cart:
+            tuples_to_yaml(self.controller.software_cart, "habitat.yaml")
+            messagebox.showinfo("Exported", "Cart items exported to habitat.yaml.")
+        else:
+            messagebox.showwarning("Empty Cart", "No items to export.")
 if __name__ == "__main__":
     app = HabitatApp()
     app.mainloop()
