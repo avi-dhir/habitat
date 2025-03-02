@@ -6,7 +6,7 @@ def generate_key():
     """Generates a new encryption key."""
     return Fernet.generate_key()
 
-def encrypt_text(input_text, filename="output.kne"):
+def encrypt_text(input_text, filename="output.hbt"):
     """Encrypts text using a format that includes invalid Unicode sequences, making it unreadable in standard text editors."""
     key = generate_key()
     cipher = Fernet(key)
@@ -21,7 +21,7 @@ def encrypt_text(input_text, filename="output.kne"):
     
     print(f"Encrypted text saved to {filename}")
 
-def decrypt_text(filename="output.kne"):
+def decrypt_text(filename="output.hbt"):
     """Decrypts a file that contains both the key and encrypted text with invalid Unicode bytes."""
     with open(filename, "rb") as file:
         scrambled_binary = file.read()

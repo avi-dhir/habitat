@@ -9,10 +9,12 @@ import subprocess
 ###################################
 def extract_tuples(config_path):
     """
-    Reads the YAML configuration file and attempts to extract:
-      name, version, install_command
-    for each defined item in package_managers, environment, or developer_tools.
+    Reads the YAML configuration file and extracts:
+      - name, version, install_command(s)
+    for each item in package_managers, environment, or developer_tools.
 
+    If 'install_command' is a multi-line string or list, it is converted into a single shell-executable string.
+    
     Returns a list of (name:str, version:str, command:str) tuples.
     """
     with open(config_path, "r") as file:
@@ -24,10 +26,18 @@ def extract_tuples(config_path):
             for name, details in config[section].items():
                 version = details.get("version", "latest")
                 command = details.get("install_command", "")
-                results.append((name, version, command))
+
+                # Normalize install_command into a single string
+                if isinstance(command, str):
+                    command_str = " && ".join(cmd.strip() for cmd in command.splitlines() if cmd.strip())  # Join multiline
+                elif isinstance(command, list):
+                    command_str = " && ".join(command)  # Join list into a string
+                else:
+                    command_str = ""
+
+                results.append((name, version, command_str))  # Store as a single string
 
     return results
-
 
 def run_commands(cart_items):
     """
