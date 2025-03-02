@@ -3,6 +3,8 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import yaml
 import subprocess
+import platform
+from generate import generate_install_commands
 
 ###################################
 # Data Extraction and Command Logic
@@ -21,6 +23,9 @@ def extract_tuples(config_path):
         config = yaml.safe_load(file)
 
     results = []
+    current_os = platform.system().lower()
+    target_os = "windows" if current_os == "darwin" else "darwin"
+
     for section in ["package_managers", "environment", "developer_tools"]:
         if section in config:
             for name, details in config[section].items():
@@ -34,6 +39,12 @@ def extract_tuples(config_path):
                     command_str = " && ".join(command)  # Join list into a string
                 else:
                     command_str = ""
+
+                # Convert command if necessary
+                if current_os != target_os:
+                    package_manager = "brew" if current_os == "darwin" else "winget"
+                    converted_commands = generate_install_commands(current_os, name, package_manager)
+                    command_str = " && ".join(converted_commands)
 
                 results.append((name, version, command_str))  # Store as a single string
 
