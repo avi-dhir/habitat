@@ -53,7 +53,7 @@ class HabitatApp(ctk.CTk):
         # Force 450x450 window size, then center it
         self.geometry("400x400")
         self.update_idletasks()
-        # self.center_window(450, 450)
+        self.center_window(390, 290)
         self.resizable(False, False)
 
         # The cart holds (Name, version, command) items
@@ -73,7 +73,7 @@ class HabitatApp(ctk.CTk):
 
         self.show_frame("WelcomePage")
 
-    def center_window(self, width=400, height=400):
+    def center_window(self, width=450, height=450):
         """Centers the window on the screen."""
         screen_w = self.winfo_screenwidth()
         screen_h = self.winfo_screenheight()
@@ -188,18 +188,10 @@ class CreatePage(ctk.CTkFrame):
         self.name_entry = ctk.CTkEntry(
             input_frame,
             placeholder_text="Name",
-            width=80,
+            width=160,  # Doubled from 80 to 160
             justify="center"
         )
-        self.name_entry.grid(row=0, column=0, padx=8, pady=5)
-
-        self.version_entry = ctk.CTkEntry(
-            input_frame,
-            placeholder_text="Version",
-            width=80,
-            justify="center"
-        )
-        self.version_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.name_entry.grid(row=0, column=0, padx=8, pady=5, columnspan=3)  # Increased column span
 
         search_button = ctk.CTkButton(
             input_frame,
@@ -207,7 +199,7 @@ class CreatePage(ctk.CTkFrame):
             command=self.search_item,
             width=60,
         )
-        search_button.grid(row=0, column=2, padx=8, pady=5)
+        search_button.grid(row=0, column=3, padx=8, pady=5)  # Moved to the last column
 
         # Cart button on the same row
         self.cart_button = ctk.CTkButton(
@@ -216,7 +208,8 @@ class CreatePage(ctk.CTkFrame):
             width=70,
             command=lambda: self.controller.show_frame("CartPage")
         )
-        self.cart_button.grid(row=0, column=3, padx=8, pady=5)
+        self.cart_button.grid(row=0, column=4, padx=8, pady=5)  # Shifted one column to the right if needed
+
 
         # Popular items
         popular_label = ctk.CTkLabel(
@@ -252,7 +245,7 @@ class CreatePage(ctk.CTkFrame):
             width=60,
             command=lambda: controller.show_frame("WelcomePage")
         )
-        back_button.pack(pady=6, anchor="center")
+        back_button.pack(padx=(20, 0), pady=6, side="left", anchor="center")
 
         self.update_cart_button()
 
@@ -313,12 +306,12 @@ class CartPage(ctk.CTkFrame):
         run_button = ctk.CTkButton(
             bottom_frame, text="Run", width=60, command=self.on_run_commands
         )
-        run_button.pack(side="left", padx=(20, 0))
+        run_button.pack(side="right", padx=(0, 20))
 
         back_button = ctk.CTkButton(
             bottom_frame, text="Back", width=60, command=self.on_back
         )
-        back_button.pack(side="right", padx=(0, 20))
+        back_button.pack(side="left", padx=(20, 0))
 
     def refresh_cart(self):
         """Refreshes the cart display with Name + Version only."""
