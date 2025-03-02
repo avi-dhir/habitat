@@ -18,7 +18,7 @@ def generate_install_commands(user_os, library, package_manager, version):
     )
 
     response = ollama.chat(model="deepseek-coder:6.7b", messages=[{"role": "user", "content": prompt}])
-    print(response["message"]["content"])
+    #print(response["message"]["content"])
     if "message" in response:
         commands = []
         for message in response["message"]["content"].split("\n"):
