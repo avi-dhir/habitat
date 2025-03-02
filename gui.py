@@ -39,6 +39,8 @@ def extract_tuples(config_path):
 
     return results
 
+import yaml
+
 def tuples_to_yaml(tuples_list, output_path):
     """
     Converts a list of (name, version, command) tuples back to a YAML configuration file.
@@ -53,18 +55,24 @@ def tuples_to_yaml(tuples_list, output_path):
     }
     
     for name, version, command in tuples_list:
-        if command and " | " in command:
-            command_list = command.split("\n")
+        if isinstance(command, str):
+            if " &&" in command:
+                command_list = command.split(" &&")
+            else:
+                command_list = [command] 
         else:
-            command_list = command
-            
+            command_list = command  
+
         config["environment"][name] = {
             "version": version,
             "install_command": command_list
         }
+    
     with open(output_path, "w") as file:
         yaml.dump(config, file, default_flow_style=False, sort_keys=False)
+    
     return config
+
 
 def run_commands(cart_items):
     """
