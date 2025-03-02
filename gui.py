@@ -39,6 +39,33 @@ def extract_tuples(config_path):
 
     return results
 
+def tuples_to_yaml(tuples_list, output_path):
+    """
+    Converts a list of (name, version, command) tuples back to a YAML configuration file.
+    Places all items in the "environment" section.
+    
+    Args:
+        tuples_list: List of (name, version, command) tuples
+        output_path: Path where the YAML file will be saved
+    """
+    config = {
+        "environment": {}
+    }
+    
+    for name, version, command in tuples_list:
+        if command and " | " in command:
+            command_list = command.split("\n")
+        else:
+            command_list = command
+            
+        config["environment"][name] = {
+            "version": version,
+            "install_command": command_list
+        }
+    with open(output_path, "w") as file:
+        yaml.dump(config, file, default_flow_style=False, sort_keys=False)
+    return config
+
 def run_commands(cart_items):
     """
     Executes the command from each tuple in cart_items.
@@ -467,6 +494,9 @@ class CartPage(ctk.CTkFrame):
         bottom_frame = ctk.CTkFrame(self, corner_radius=0, border_width=0, fg_color="transparent")
         bottom_frame.pack(fill="x", pady=6)
 
+        export_button = ctk.CTkButton(bottom_frame, text="Export", width=60, command=self.export_to_yaml)
+        export_button.pack(side="right", padx=(0, 10))
+        
         run_button = ctk.CTkButton(
             bottom_frame, text="Run", width=60, command=self.on_run_commands
         )
@@ -555,6 +585,13 @@ class CartPage(ctk.CTkFrame):
     def tkraise(self, aboveThis=None):
         self.refresh_cart()
         super().tkraise(aboveThis)
+        
+    def export_to_yaml(self):
+        if self.controller.software_cart:
+            tuples_to_yaml(self.controller.software_cart, "habitat.yaml")
+            messagebox.showinfo("Exported", "Cart items exported to habitat.yaml.")
+        else:
+            messagebox.showwarning("Empty Cart", "No items to export.")
 if __name__ == "__main__":
     app = HabitatApp()
     app.mainloop()
