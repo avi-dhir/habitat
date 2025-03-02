@@ -2,6 +2,7 @@ import tkinter as tk
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import yaml
+import subprocess
 
 ###################################
 # Data Extraction and Command Logic
@@ -33,12 +34,18 @@ def run_commands(cart_items):
     """
     Executes the command from each tuple in cart_items.
     cart_items is a list of (Name, Version, Command) tuples.
-
-    For demo purposes, we just print them.
     """
     for (name, version, command) in cart_items:
-        print(f"Running command for {name} v{version}: {command}")
-    print("All commands run (demo).")
+        if command:
+            print(f"Running command for {name} v{version}: {command}")
+            try:
+                result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                print(result.stdout.decode())
+            except subprocess.CalledProcessError as e:
+                print(f"Error running command for {name} v{version}: {e.stderr.decode()}")
+        else:
+            print(f"No command to run for {name} v{version}")
+    print("All commands run.")
 
 ###################################
 # Main HabitatApp and Pages
