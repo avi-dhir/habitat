@@ -67,9 +67,9 @@ class HabitatApp(ctk.CTk):
         super().__init__()
         self.title("Habitat")
         # Force 450x450 window size, then center it
-        self.geometry("400x400")
+        self.geometry("600x400")
         self.update_idletasks()
-        self.center_window(390, 290)
+        self.center_window(580, 290)
         self.resizable(False, False)
 
         # The cart holds (Name, version, command) items
@@ -176,48 +176,63 @@ class WelcomePage(ctk.CTkFrame):
 
 class CreatePage(ctk.CTkFrame):
     """
-    Allows user to add (Name, Version) via text entries,
-    plus a "Search" button. On the same row, there's a "Cart" button.
+    Allows the user to manually add (Name, Version, Package Manager) via text entries
+    and an "Add to Cart" button. The input section is positioned at the top.
     """
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        # Input area with grid layout
+        ###################################
+        # Manual Entry Section (Now at the Top)
+        ###################################
         input_frame = ctk.CTkFrame(self)
         input_frame.pack(pady=10)
 
-        # We'll use 4 columns now: name, version, search, cart
+        # Configure grid layout
         input_frame.grid_rowconfigure(0, weight=1)
-        for col in range(4):
+        for col in range(3):
             input_frame.grid_columnconfigure(col, weight=1)
 
+        # Name Entry
         self.name_entry = ctk.CTkEntry(
             input_frame,
-            placeholder_text="Name",
-            width=160,  # Increased from 80 to 160
+            placeholder_text="Software Name",
+            width=160,
             justify="center"
         )
-        # If you want it to span more columns, adjust columnspan accordingly.
-        self.name_entry.grid(row=0, column=0, padx=8, pady=5, columnspan=2)
+        self.name_entry.grid(row=0, column=0, padx=8, pady=5)
 
-        search_button = ctk.CTkButton(
+        # Version Entry
+        self.version_entry = ctk.CTkEntry(
             input_frame,
-            text="Search",
-            command=self.search_item,
-            width=60,
+            placeholder_text="Version (optional)",
+            width=100,
+            justify="center"
         )
-        search_button.grid(row=0, column=2, padx=8, pady=5)
+        self.version_entry.grid(row=0, column=1, padx=8, pady=5)
 
-        self.cart_button = ctk.CTkButton(
+        # Package Manager Entry (Optional)
+        self.package_manager_entry = ctk.CTkEntry(
             input_frame,
-            text="Cart (0)",
-            width=70,
-            command=lambda: self.controller.show_frame("CartPage")
+            placeholder_text="Package Manager (optional)",
+            width=140,
+            justify="center"
         )
-        self.cart_button.grid(row=0, column=3, padx=8, pady=5)
+        self.package_manager_entry.grid(row=0, column=2, padx=8, pady=5)
 
-        # Popular items
+        # Add to Cart Button
+        add_button = ctk.CTkButton(
+            input_frame,
+            text="Add to Cart",
+            width=120,
+            command=self.add_custom_item
+        )
+        add_button.grid(row=0, column=3, padx=8, pady=5)
+
+        ###################################
+        # Popular Items Section
+        ###################################
         popular_label = ctk.CTkLabel(
             self,
             text="Popular Items:",
@@ -234,21 +249,15 @@ class CreatePage(ctk.CTkFrame):
             ("VSCode", "1.81.1", "code --install-extension"),
         ]
 
-        # Create a dictionary to store version entry widgets for popular items
+        # Dictionary to store version entry widgets for popular items
         self.popular_version_entries = {}
 
         for item in self.popular_libraries:
             name, version, cmd = item
-            
-            # Create a frame for each popular item
-            item_frame = ctk.CTkFrame(
-                popular_frame,
-                corner_radius=0,
-                border_width=0,
-                fg_color="transparent"
-            )
+
+            item_frame = ctk.CTkFrame(popular_frame, fg_color="transparent")
             item_frame.pack(pady=4, anchor="center")
-            
+
             # Name button
             name_button = ctk.CTkButton(
                 item_frame,
@@ -257,46 +266,67 @@ class CreatePage(ctk.CTkFrame):
                 command=lambda i=item: self.add_popular_item(i)
             )
             name_button.pack(side="left", padx=(0, 5))
-            
+
             # Version entry
-            version_entry = ctk.CTkEntry(
-                item_frame,
-                width=80,
-                justify="center"
-            )
+            version_entry = ctk.CTkEntry(item_frame, width=80, justify="center")
             version_entry.insert(0, version)
             version_entry.pack(side="left")
-            
+
             # Store reference to the entry widget
             self.popular_version_entries[name] = version_entry
 
+        ###################################
+        # Bottom Navigation (Cart Button at Bottom Right)
+        ###################################
+        bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
+        bottom_frame.pack(fill="x", pady=10)
+
         back_button = ctk.CTkButton(
-            self,
+            bottom_frame,
             text="Back",
-            width=60,
+            width=80,
             command=lambda: controller.show_frame("WelcomePage")
         )
-        back_button.pack(padx=(20, 0), pady=6, side="left", anchor="center")
+        back_button.pack(side="left", padx=(20, 0))
+
+        self.cart_button = ctk.CTkButton(
+            bottom_frame,
+            text="Cart (0)",
+            width=100,
+            command=lambda: self.controller.show_frame("CartPage")
+        )
+        self.cart_button.pack(side="right", padx=(0, 20))
 
         self.update_cart_button()
 
-    def search_item(self):
-        """When user clicks 'Search', treat it like adding items with no command."""
+    ###################################
+    # Helper Methods
+    ###################################
+    def add_custom_item(self):
+        """Adds a custom software package to the cart."""
         name = self.name_entry.get().strip()
-        version = self.version_entry.get().strip() or "latest"  # Default to "latest" if empty
-        command = ""
-        if name:
-            self.controller.add_to_cart(name, version, command)
-            # Clear entries
-            self.name_entry.delete(0, tk.END)
-            self.version_entry.delete(0, tk.END)
-            self.update_cart_button()
-        else:
-            messagebox.showwarning("Input Error", "Please enter at least a Name.")
+        version = self.version_entry.get().strip() or "latest"
+        package_manager = self.package_manager_entry.get().strip()
+
+        if not name:
+            messagebox.showwarning("Input Error", "Please enter a software name.")
+            return
+
+        # Construct install command if a package manager is provided
+        command = f"{package_manager} install {name}" if package_manager else ""
+
+        self.controller.add_to_cart(name, version, command)
+
+        # Clear input fields
+        self.name_entry.delete(0, tk.END)
+        self.version_entry.delete(0, tk.END)
+        self.package_manager_entry.delete(0, tk.END)
+
+        self.update_cart_button()
 
     def add_popular_item(self, item):
+        """Adds a popular item to the cart."""
         name, _, cmd = item
-        # Get the current version from the entry
         version = self.popular_version_entries[name].get().strip() or "latest"
         self.controller.add_to_cart(name, version, cmd)
         self.update_cart_button()
@@ -306,147 +336,14 @@ class CreatePage(ctk.CTkFrame):
         count = len(self.controller.software_cart)
         self.cart_button.configure(text=f"Cart ({count})")
 
-
-# class CartPage(ctk.CTkFrame):
-#     """
-#     Displays (Name, version) from the cart with editable version field.
-#     """
-#     def __init__(self, parent, controller):
-#         super().__init__(parent, corner_radius=0, border_width=0, fg_color="transparent")
-#         self.controller = controller
-#         self.version_entries = {}  # To store version entry widgets
-
-#         title_label = ctk.CTkLabel(
-#             self,
-#             text="Shopping Cart",
-#             font=ctk.CTkFont(size=15, weight="bold"),
-#         )
-#         title_label.pack(pady=(10, 6), anchor="center")
-
-#         self.scroll_frame = ctk.CTkScrollableFrame(
-#             self,
-#             width=350,
-#             corner_radius=0,
-#             border_width=0,
-#             fg_color="transparent",
-#         )
-#         self.scroll_frame.pack(padx=10, pady=(0, 6), fill="both", expand=True)
-
-#         bottom_frame = ctk.CTkFrame(
-#             self, corner_radius=0, border_width=0, fg_color="transparent"
-#         )
-#         bottom_frame.pack(fill="x", pady=6)
-
-#         run_button = ctk.CTkButton(
-#             bottom_frame, text="Run", width=60, command=self.on_run_commands
-#         )
-#         run_button.pack(side="right", padx=(0, 20))
-
-#         back_button = ctk.CTkButton(
-#             bottom_frame, text="Back", width=60, command=self.on_back
-#         )
-#         back_button.pack(side="left", padx=(20, 0))
-        
-#         # Add an update all button
-#         update_button = ctk.CTkButton(
-#             bottom_frame, text="Update All", width=80, command=self.update_all_versions
-#         )
-#         update_button.pack(side="bottom", pady=5)
-
-#     def refresh_cart(self):
-#         """Refreshes the cart display with Name + Editable Version."""
-#         for widget in self.scroll_frame.winfo_children():
-#             widget.destroy()
-            
-#         self.version_entries.clear()
-
-#         for idx, item in enumerate(self.controller.software_cart, start=1):
-#             name, version, cmd = item
-            
-#             item_frame = ctk.CTkFrame(
-#                 self.scroll_frame,
-#                 corner_radius=0,
-#                 border_width=0,
-#                 fg_color="transparent"
-#             )
-#             item_frame.pack(fill="x", pady=4, padx=15)
-
-#             # Name label
-#             name_label = ctk.CTkLabel(item_frame, text=f"{idx}. {name}")
-#             name_label.pack(side="left", padx=5)
-            
-#             # Version entry field
-#             version_entry = ctk.CTkEntry(
-#                 item_frame, 
-#                 width=80,
-#                 justify="center"
-#             )
-#             version_entry.insert(0, version)
-#             version_entry.pack(side="left", padx=5)
-            
-#             # Store the entry widget with reference to the item for updating later
-#             self.version_entries[item] = (version_entry, idx-1)
-
-#             # Remove button
-#             remove_button = ctk.CTkButton(
-#                 item_frame, text="X", width=25, command=lambda t=item: self.remove_from_cart(t)
-#             )
-#             remove_button.pack(side="right", padx=5)
-
-#     def update_all_versions(self):
-#         """Updates all item versions based on entry fields."""
-#         new_cart = []
-        
-#         # Iterate through current cart and get updated versions
-#         for item, (entry_widget, idx) in self.version_entries.items():
-#             name, _, cmd = item
-#             new_version = entry_widget.get().strip() or "latest"
-#             new_item = (name, new_version, cmd)
-#             new_cart.append(new_item)
-        
-#         # Replace the entire cart
-#         self.controller.software_cart = new_cart
-#         self.refresh_cart()
-#         messagebox.showinfo("Updated", "All versions have been updated.")
-
-#     def remove_from_cart(self, tuple_item):
-#         if tuple_item in self.controller.software_cart:
-#             self.controller.software_cart.remove(tuple_item)
-#             self.refresh_cart()
-#             self.controller.frames["CreatePage"].update_cart_button()
-#             messagebox.showinfo("Removed", f"'{tuple_item[0]}' was removed.")
-#         else:
-#             messagebox.showwarning("Not Found", "Item is not in the cart.")
-
-#     def on_run_commands(self):
-#         # First update all versions
-#         self.update_all_versions()
-        
-#         if self.controller.software_cart:
-#             run_commands(self.controller.software_cart)
-#             messagebox.showinfo("Done", "Commands executed (see console output).")
-#         else:
-#             messagebox.showinfo("Empty Cart", "No items to install.")
-
-#     def on_back(self):
-#         # Update versions before going back
-#         self.update_all_versions()
-#         self.controller.show_frame("CreatePage")
-#         self.controller.frames["CreatePage"].update_cart_button()
-
-#     def tkraise(self, aboveThis=None):
-#         self.refresh_cart()
-#         super().tkraise(aboveThis)
-
 class CartPage(ctk.CTkFrame):
     """
-    Displays (Name, Version) from the cart with editable version fields.
-    Updates automatically when a version is changed.
+    Displays (Name, version) from the cart with editable version field.
     """
     def __init__(self, parent, controller):
         super().__init__(parent, corner_radius=0, border_width=0, fg_color="transparent")
         self.controller = controller
-        self.version_entries = {}  # Store version entry widgets
+        self.version_entries = {}  # To store version entry widgets
 
         title_label = ctk.CTkLabel(
             self,
@@ -464,7 +361,9 @@ class CartPage(ctk.CTkFrame):
         )
         self.scroll_frame.pack(padx=10, pady=(0, 6), fill="both", expand=True)
 
-        bottom_frame = ctk.CTkFrame(self, corner_radius=0, border_width=0, fg_color="transparent")
+        bottom_frame = ctk.CTkFrame(
+            self, corner_radius=0, border_width=0, fg_color="transparent"
+        )
         bottom_frame.pack(fill="x", pady=6)
 
         run_button = ctk.CTkButton(
@@ -476,6 +375,12 @@ class CartPage(ctk.CTkFrame):
             bottom_frame, text="Back", width=60, command=self.on_back
         )
         back_button.pack(side="left", padx=(20, 0))
+        
+        # Add an update all button
+        # update_button = ctk.CTkButton(
+        #     bottom_frame, text="Update All", width=80, command=self.update_all_versions
+        # )
+        # update_button.pack(side="bottom", pady=5)
 
     def refresh_cart(self):
         """Refreshes the cart display with Name + Editable Version."""
@@ -508,11 +413,8 @@ class CartPage(ctk.CTkFrame):
             version_entry.insert(0, version)
             version_entry.pack(side="left", padx=5)
             
-            # Bind focus-out event to auto-update version
-            version_entry.bind("<FocusOut>", lambda e, i=item, v=version_entry: self.update_version(i, v))
-
             # Store the entry widget with reference to the item for updating later
-            self.version_entries[item] = version_entry
+            self.version_entries[item] = (version_entry, idx-1)
 
             # Remove button
             remove_button = ctk.CTkButton(
@@ -520,15 +422,21 @@ class CartPage(ctk.CTkFrame):
             )
             remove_button.pack(side="right", padx=5)
 
-    def update_version(self, item, entry_widget):
-        """Updates version in cart when an entry loses focus."""
-        new_version = entry_widget.get().strip() or "latest"
-        if item in self.controller.software_cart:
+    def update_all_versions(self):
+        """Updates all item versions based on entry fields."""
+        new_cart = []
+        
+        # Iterate through current cart and get updated versions
+        for item, (entry_widget, idx) in self.version_entries.items():
             name, _, cmd = item
-            updated_item = (name, new_version, cmd)
-            index = self.controller.software_cart.index(item)
-            self.controller.software_cart[index] = updated_item
-            print(f"Updated '{name}' to version {new_version}")
+            new_version = entry_widget.get().strip() or "latest"
+            new_item = (name, new_version, cmd)
+            new_cart.append(new_item)
+        
+        # Replace the entire cart
+        self.controller.software_cart = new_cart
+        self.refresh_cart()
+        messagebox.showinfo("Updated", "All versions have been updated.")
 
     def remove_from_cart(self, tuple_item):
         if tuple_item in self.controller.software_cart:
@@ -540,7 +448,9 @@ class CartPage(ctk.CTkFrame):
             messagebox.showwarning("Not Found", "Item is not in the cart.")
 
     def on_run_commands(self):
-        """Run commands with the latest versions."""
+        # First update all versions
+        self.update_all_versions()
+        
         if self.controller.software_cart:
             run_commands(self.controller.software_cart)
             messagebox.showinfo("Done", "Commands executed (see console output).")
@@ -548,13 +458,132 @@ class CartPage(ctk.CTkFrame):
             messagebox.showinfo("Empty Cart", "No items to install.")
 
     def on_back(self):
-        """Return to CreatePage with updated versions."""
+        # Update versions before going back
+        self.update_all_versions()
         self.controller.show_frame("CreatePage")
         self.controller.frames["CreatePage"].update_cart_button()
 
     def tkraise(self, aboveThis=None):
         self.refresh_cart()
         super().tkraise(aboveThis)
+
+# class CartPage(ctk.CTkFrame):
+#     """
+#     Displays (Name, Version) from the cart with editable version fields.
+#     Updates automatically when a version is changed.
+#     """
+#     def __init__(self, parent, controller):
+#         super().__init__(parent, corner_radius=0, border_width=0, fg_color="transparent")
+#         self.controller = controller
+#         self.version_entries = {}  # Store version entry widgets
+
+#         title_label = ctk.CTkLabel(
+#             self,
+#             text="Shopping Cart",
+#             font=ctk.CTkFont(size=15, weight="bold"),
+#         )
+#         title_label.pack(pady=(10, 6), anchor="center")
+
+#         self.scroll_frame = ctk.CTkScrollableFrame(
+#             self,
+#             width=350,
+#             corner_radius=0,
+#             border_width=0,
+#             fg_color="transparent",
+#         )
+#         self.scroll_frame.pack(padx=10, pady=(0, 6), fill="both", expand=True)
+
+#         bottom_frame = ctk.CTkFrame(self, corner_radius=0, border_width=0, fg_color="transparent")
+#         bottom_frame.pack(fill="x", pady=6)
+
+#         run_button = ctk.CTkButton(
+#             bottom_frame, text="Run", width=60, command=self.on_run_commands
+#         )
+#         run_button.pack(side="right", padx=(0, 20))
+
+#         back_button = ctk.CTkButton(
+#             bottom_frame, text="Back", width=60, command=self.on_back
+#         )
+#         back_button.pack(side="left", padx=(20, 0))
+
+#     def refresh_cart(self):
+#         """Refreshes the cart display with Name + Editable Version."""
+#         for widget in self.scroll_frame.winfo_children():
+#             widget.destroy()
+            
+#         self.version_entries.clear()
+
+#         for idx, item in enumerate(self.controller.software_cart, start=1):
+#             name, version, cmd = item
+            
+#             item_frame = ctk.CTkFrame(
+#                 self.scroll_frame,
+#                 corner_radius=0,
+#                 border_width=0,
+#                 fg_color="transparent"
+#             )
+#             item_frame.pack(fill="x", pady=4, padx=15)
+
+#             # Name label
+#             name_label = ctk.CTkLabel(item_frame, text=f"{idx}. {name}")
+#             name_label.pack(side="left", padx=5)
+            
+#             # Version entry field
+#             version_entry = ctk.CTkEntry(
+#                 item_frame, 
+#                 width=80,
+#                 justify="center"
+#             )
+#             version_entry.insert(0, version)
+#             version_entry.pack(side="left", padx=5)
+            
+#             # Bind focus-out event to auto-update version
+#             version_entry.bind("<FocusOut>", lambda e, i=item, v=version_entry: self.update_version(i, v))
+
+#             # Store the entry widget with reference to the item for updating later
+#             self.version_entries[item] = version_entry
+
+#             # Remove button
+#             remove_button = ctk.CTkButton(
+#                 item_frame, text="X", width=25, command=lambda t=item: self.remove_from_cart(t)
+#             )
+#             remove_button.pack(side="right", padx=5)
+
+#     def update_version(self, item, entry_widget):
+#         """Updates version in cart when an entry loses focus."""
+#         new_version = entry_widget.get().strip() or "latest"
+#         if item in self.controller.software_cart:
+#             name, _, cmd = item
+#             updated_item = (name, new_version, cmd)
+#             index = self.controller.software_cart.index(item)
+#             self.controller.software_cart[index] = updated_item
+#             print(f"Updated '{name}' to version {new_version}")
+
+#     def remove_from_cart(self, tuple_item):
+#         if tuple_item in self.controller.software_cart:
+#             self.controller.software_cart.remove(tuple_item)
+#             self.refresh_cart()
+#             self.controller.frames["CreatePage"].update_cart_button()
+#             messagebox.showinfo("Removed", f"'{tuple_item[0]}' was removed.")
+#         else:
+#             messagebox.showwarning("Not Found", "Item is not in the cart.")
+
+#     def on_run_commands(self):
+#         """Run commands with the latest versions."""
+#         if self.controller.software_cart:
+#             run_commands(self.controller.software_cart)
+#             messagebox.showinfo("Done", "Commands executed (see console output).")
+#         else:
+#             messagebox.showinfo("Empty Cart", "No items to install.")
+
+#     def on_back(self):
+#         """Return to CreatePage with updated versions."""
+#         self.controller.show_frame("CreatePage")
+#         self.controller.frames["CreatePage"].update_cart_button()
+
+#     def tkraise(self, aboveThis=None):
+#         self.refresh_cart()
+#         super().tkraise(aboveThis)
 if __name__ == "__main__":
     app = HabitatApp()
     app.mainloop()
