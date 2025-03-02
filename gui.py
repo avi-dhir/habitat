@@ -303,7 +303,10 @@ class CartPage(ctk.CTkFrame):
     def on_back(self):
         """ Navigates back to the previous page """
         self.controller.show_frame("CreatePage")
-
+        create_page = self.controller.frames["CreatePage"]
+        create_page.update_cart_icon()
+        
+        
     def tkraise(self, aboveThis=None):
         """ Overrides tkraise to update cart items dynamically """
         self.refresh_cart()
