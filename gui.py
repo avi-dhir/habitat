@@ -1,69 +1,69 @@
-import customtkinter as ctk
 import tkinter as tk
+import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import yaml
 
-from extract_commands import extract_name
-
-# Suppose you place extract_commands.py in the same folder and import its functions
-# If you prefer, you can inline or replicate the logic below
-# from extract_commands import extract_commands, run_commands, extract_name
-
-####################
-# Dummy placeholders 
-####################
-
-def extract_commands(config_path):
+###################################
+# Data Extraction and Command Logic
+###################################
+def extract_tuples(config_path):
     """
-    Reads the YAML configuration file and extracts all install commands.
-    Returns a list of commands.
+    Reads the YAML configuration file and attempts to extract:
+      name, version, install_command
+    for each defined item in package_managers, environment, or developer_tools.
+
+    Returns a list of (name:str, version:str, command:str) tuples.
     """
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
 
-    commands = []
+    results = []
     for section in ["package_managers", "environment", "developer_tools"]:
         if section in config:
             for _, details in config[section].items():
-                command = details.get("install_command")
-                if command:
-                    commands.append(command)
-    return commands
+                name = details.get("name", "Unknown")
+                version = details.get("version", "latest")
+                command = details.get("install_command", "")
+                results.append((name, version, command))
 
-def run_commands(commands):
+    return results
+
+
+def run_commands(cart_items):
     """
-    Executes a list of commands (just printing here for demo).
+    Executes the command from each tuple in cart_items.
+    cart_items is a list of (Name, Version, Command) tuples.
+
+    For demo purposes, we just print them.
     """
-    for cmd in commands:
-        print(f"Running command: {cmd}")
+    for (name, version, command) in cart_items:
+        print(f"Running command for {name} v{version}: {command}")
     print("All commands run (demo).")
-
 
 ###################################
 # Main HabitatApp and Pages
 ###################################
-ctk.set_appearance_mode("System")   # "System", "Dark", "Light"
-ctk.set_default_color_theme("blue") # "blue", "green", "dark-blue"
+
+ctk.set_appearance_mode("System")  # "System", "Dark", "Light"
+ctk.set_default_color_theme("blue")  # "blue", "green", "dark-blue"
 
 class HabitatApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Habitat")
-        
-        # Fixed window size
-        self.geometry("600x400")
+        # Make it more square to reduce bottom "chin"
+        self.geometry("420x420")
         self.resizable(False, False)
 
-        # This list will hold the software we want to install:
+        # The cart will hold tuples of (Name, version, command).
         self.software_cart = []
-        self.names = []
 
         # Container for pages
         container = ctk.CTkFrame(self, corner_radius=0)
         container.pack(fill="both", expand=True)
-
         self.frames = {}
 
+        # We have three pages: Welcome, Create, Cart.
         for Page in (WelcomePage, CreatePage, CartPage):
             page_name = Page.__name__
             frame = Page(parent=container, controller=self)
@@ -73,227 +73,257 @@ class HabitatApp(ctk.CTk):
         self.show_frame("WelcomePage")
 
     def show_frame(self, page_name: str):
-        """Bring the specified page to the front."""
+        """Bring the specified page to the front, with any needed refresh."""
         frame = self.frames[page_name]
         frame.tkraise()
 
-    def add_to_cart(self, item):
-        """Add a given item (string or dict) to the software cart."""
-        if item not in self.software_cart:
-            self.software_cart.append(item)
-    
-        # Force update the cart icon (count) if we're on CreatePage
-            create_page = self.frames["CreatePage"]
-            create_page.update_cart_icon()
+        if page_name == "CartPage":
+            self.frames["CartPage"].refresh_cart()
+        elif page_name == "CreatePage":
+            self.frames["CreatePage"].update_cart_icon()
+
+    def add_to_cart(self, name: str, version: str, command: str):
+        """Add a (Name, version, command) tuple to software_cart if not duplicate."""
+        new_item = (name, version, command)
+        if new_item not in self.software_cart:
+            self.software_cart.append(new_item)
+            self.frames["CreatePage"].update_cart_icon()
+            self.frames["CartPage"].refresh_cart()
         else:
-            messagebox.showinfo("Duplicate Entry", f"'{item}' is already in the cart.")
-    def add_to_names(self, name):
-        """Add a given name to the names list."""
-        if name not in self.names:
-            self.names.append(name)
-        else:
-            messagebox.showinfo("Duplicate Entry", f"'{name}' is already in the list.")
-    
+            messagebox.showinfo("Duplicate Entry", f"'{name} v{version}' is already in the cart.")
+
     def clear_cart(self):
-        """Utility to clear the cart if needed."""
+        """Utility to clear the entire cart."""
         self.software_cart.clear()
-        self.names.clear() 
+        self.frames["CartPage"].refresh_cart()
+        self.frames["CreatePage"].update_cart_icon()
+
+###################################
+# Welcome Page
+###################################
 
 class WelcomePage(ctk.CTkFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
+        # Title
         title_label = ctk.CTkLabel(
             self,
             text="Welcome to Habitat",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=ctk.CTkFont(size=18, weight="bold")
         )
-        title_label.pack(pady=30)
+        # Reduced padding to minimize blank space
+        title_label.pack(pady=(15, 8))
 
-        # Create button
         create_button = ctk.CTkButton(
             self,
             text="Create",
-            command=lambda: controller.show_frame("CreatePage")
+            command=lambda: controller.show_frame("CreatePage"),
+            width=120
         )
-        create_button.pack(pady=10)
+        create_button.pack(pady=4)
 
-        # Import button
         import_button = ctk.CTkButton(
             self,
             text="Import",
-            command=self.import_file
+            command=self.import_file,
+            width=120
         )
-        import_button.pack(pady=10)
+        import_button.pack(pady=4)
 
     def import_file(self):
         """
-        Open a file dialog to import only a YAML file.
-        If user selects a valid YAML, parse it and store in the cart,
-        then go to the CartPage to show the user what is about to be installed.
+        Opens a file dialog to import only a YAML file.
+        Then extracts (Name, version, command) tuples.
         """
         file_path = filedialog.askopenfilename(
             title="Import Dependencies (.yaml only)",
             filetypes=[("YAML Files", "*.yaml"), ("All Files", "*.*")]
         )
-
         if not file_path:
-            # User cancelled
-            return
-
-        # Check file extension
+            return  # User cancelled
         if not file_path.lower().endswith(".yaml"):
             messagebox.showerror("Error", "Please select a .yaml file.")
             return
 
         try:
-            # Clear any existing cart items
             self.controller.clear_cart()
+            from extract_tuples import extract_tuples  # If local, keep direct reference.
+        except ImportError:
+            messagebox.showerror("Import Error", "extract_tuples function not found.")
+            return
+        except Exception as e:
+            messagebox.showerror("Error", f"Error setting up import: {e}")
+            return
 
-            # Extract commands from the YAML
-            names = extract_name(file_path)
-            commands = extract_commands(file_path)
-            # For demonstration, let's store them as strings in the cart
-            if commands:
-                for cmd in commands:
-                    self.controller.add_to_cart(cmd)
+        try:
+            all_items = extract_tuples(file_path)
+            if all_items:
+                for (name, version, cmd) in all_items:
+                    self.controller.add_to_cart(name, version, cmd)
             else:
-                messagebox.showinfo("No Commands Found", "No install commands found in YAML.")
+                messagebox.showinfo("No Commands Found", "No valid commands found in YAML.")
 
-            if names:
-                for name in names:
-                    self.controller.add_to_names(name)
-            else: 
-                messagebox.showinfo("No Names Found", "No names found in YAML.")
-
-            # Go to CartPage to see what we have
             self.controller.show_frame("CartPage")
-
         except Exception as e:
             messagebox.showerror("Error", f"Failed to parse YAML: {e}")
 
+###################################
+# Create Page
+###################################
 
 class CreatePage(ctk.CTkFrame):
     """
-    A page that shows some popular libraries as clickable items and
-    a text entry for custom libraries. 
-    A 'cart' button in the top-right corner shows how many items are in the cart.
+    Allows user to add (Name, version, command) via text entries,
+    plus a selection of popular libraries stored as tuples.
+
+    We only display Name + Version in the UI text.
     """
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        # Top frame for search and cart
-        top_frame = ctk.CTkFrame(self)
-        top_frame.pack(fill="x", pady=10)
+        # Container for input fields
+        input_frame = ctk.CTkFrame(self)
+        input_frame.pack(fill="x", pady=5)
 
-        # Search entry for custom libraries
-        self.search_entry = ctk.CTkEntry(top_frame, placeholder_text="Type a library/framework...")
-        self.search_entry.pack(side="left", padx=10)
+        # Entries for name, version, command
+        self.name_entry = ctk.CTkEntry(input_frame, placeholder_text="Name", width=75)
+        self.name_entry.grid(row=0, column=0, padx=3)
 
-        # "Add" button 
-        add_button = ctk.CTkButton(top_frame, text="Add", command=self.add_custom_library)
-        add_button.pack(side="left", padx=5)
+        self.version_entry = ctk.CTkEntry(input_frame, placeholder_text="Version", width=75)
+        self.version_entry.grid(row=0, column=1, padx=3)
 
-        # Cart button on the right
-        self.cart_button = ctk.CTkButton(top_frame, text="Cart (0)", command=self.go_to_cart)
-        self.cart_button.pack(side="right", padx=10)
+        self.command_entry = ctk.CTkEntry(input_frame, placeholder_text="Command", width=75)
+        self.command_entry.grid(row=0, column=2, padx=3)
 
-        # A frame to display popular libraries
+        add_button = ctk.CTkButton(input_frame, text="Add", command=self.add_custom_tuple, width=45)
+        add_button.grid(row=0, column=3, padx=(3,0))
+
+        # Cart button top-right
+        self.cart_button = ctk.CTkButton(self, text="Cart (0)", command=self.go_to_cart, width=90)
+        self.cart_button.pack(anchor="ne", padx=10, pady=(0,2))
+
+        # Popular library tuples
+        popular_label = ctk.CTkLabel(self, text="Popular Items:", font=ctk.CTkFont(size=14, weight="bold"))
+        popular_label.pack(pady=(4,2))
+
         popular_frame = ctk.CTkFrame(self)
-        popular_frame.pack(fill="both", expand=True, pady=10)
+        popular_frame.pack(fill="x", pady=(0,5), padx=20)
 
-        ctk.CTkLabel(popular_frame, text="Popular Libraries:", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=5)
+        # Each item is (Name, version, command)
+        self.popular_libraries = [
+            ("Node.js", "latest", "npm install -g node"),
+            ("Python", "3.10", "pip install python"),
+            ("VSCode", "1.81.1", "code --install-extension")
+        ]
 
-        # Example popular libraries
-        self.popular_libraries = ["Node.js", "Python", "VSCode"]
-        for lib in self.popular_libraries:
-            btn = ctk.CTkButton(popular_frame, text=lib, command=lambda x=lib: self.add_popular_library(x))
-            btn.pack(pady=5)
+        # Stack them vertically, narrower width
+        for item in self.popular_libraries:
+            name, version, _cmd = item
+            text_display = f"{name} (v{version})"
+            btn = ctk.CTkButton(
+                popular_frame,
+                text=text_display,
+                command=lambda i=item: self.add_popular_tuple(i),
+                width=180
+            )
+            btn.pack(pady=2)
 
         # Back button
-        back_button = ctk.CTkButton(self, text="Back", command=lambda: controller.show_frame("WelcomePage"))
-        back_button.pack(pady=5)
+        back_button = ctk.CTkButton(self, text="Back", command=lambda: controller.show_frame("WelcomePage"), width=60)
+        back_button.pack(pady=(0,2))
 
-        # Update cart icon initially
         self.update_cart_icon()
 
-    def add_popular_library(self, lib_name):
-        self.controller.add_to_names(lib_name)
-        self.controller.add_to_cart(lib_name)
-        self.update_cart_icon()
-
-    def add_custom_library(self):
-        custom_lib = self.search_entry.get().strip()
-        if custom_lib:
-            self.controller.add_to_cart(custom_lib)
-            self.search_entry.delete(0, tk.END)
+    def add_custom_tuple(self):
+        name = self.name_entry.get().strip()
+        version = self.version_entry.get().strip()
+        command = self.command_entry.get().strip()
+        if name and version and command:
+            self.controller.add_to_cart(name, version, command)
+            self.name_entry.delete(0, tk.END)
+            self.version_entry.delete(0, tk.END)
+            self.command_entry.delete(0, tk.END)
             self.update_cart_icon()
+        else:
+            messagebox.showwarning("Input Error", "Please fill out Name, Version, and Command.")
+
+    def add_popular_tuple(self, item):
+        name, version, cmd = item
+        self.controller.add_to_cart(name, version, cmd)
+        self.update_cart_icon()
 
     def update_cart_icon(self):
         count = len(self.controller.software_cart)
         self.cart_button.configure(text=f"Cart ({count})")
 
     def go_to_cart(self):
-        # Navigate to cart page
         self.controller.show_frame("CartPage")
 
+###################################
+# Cart Page
+###################################
 
 class CartPage(ctk.CTkFrame):
     """
-    Shows all items in the cart and has a "Run commands" button
-    to perform the installation (via run_commands).
+    Displays the (Name, version, command) tuples in the cart.
+    Only shows Name + Version in the UI.
     """
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        title_label = ctk.CTkLabel(self, text="Shopping Cart", font=ctk.CTkFont(size=18, weight="bold"))
-        title_label.pack(pady=10)
+        title_label = ctk.CTkLabel(self, text="Shopping Cart", font=ctk.CTkFont(size=15, weight="bold"))
+        title_label.pack(pady=(8,2))
 
-        # Scrollable frame to list items
-        self.scroll_frame = ctk.CTkScrollableFrame(self, width=500, height=200)
-        self.scroll_frame.pack(padx=10, pady=10, fill="both", expand=True)
+        # Adjust scroll frame for square layout
+        # Removing explicit height so it shrinks if no items.
+        self.scroll_frame = ctk.CTkScrollableFrame(self, width=350)
+        self.scroll_frame.pack(padx=10, pady=(0,2), fill="both", expand=True)
 
-        # Buttons at bottom
         bottom_frame = ctk.CTkFrame(self)
-        bottom_frame.pack(fill="x", pady=10)
+        bottom_frame.pack(fill="x", pady=(0,5))
 
-        run_button = ctk.CTkButton(bottom_frame, text="Run commands", command=self.on_run_commands)
-        run_button.pack(side="left", padx=20)
+        run_button = ctk.CTkButton(bottom_frame, text="Run", command=self.on_run_commands, width=60)
+        run_button.pack(side="left", padx=(10,0))
 
-        back_button = ctk.CTkButton(bottom_frame, text="Back", command=self.on_back)
-        back_button.pack(side="right", padx=20)
+        back_button = ctk.CTkButton(bottom_frame, text="Back", command=self.on_back, width=60)
+        back_button.pack(side="right", padx=(0,10))
 
     def refresh_cart(self):
-        """ Refreshes the cart display dynamically """
-        # Clear previous items
+        """Refreshes the cart display with just Name and Version."""
         for widget in self.scroll_frame.winfo_children():
             widget.destroy()
 
-        # Display items with remove buttons
         for idx, item in enumerate(self.controller.software_cart, start=1):
+            name, version, _cmd = item
+
             item_frame = ctk.CTkFrame(self.scroll_frame)
             item_frame.pack(fill="x", pady=2, padx=5)
 
-            label = ctk.CTkLabel(item_frame, text=f"{idx}. {item}")
+            label_text = f"{idx}. {name} (v{version})"
+            label = ctk.CTkLabel(item_frame, text=label_text)
             label.pack(side="left", padx=5)
 
-            remove_button = ctk.CTkButton(item_frame, text="Remove", width=80, command=lambda i=item: self.remove_from_cart(i))
+            remove_button = ctk.CTkButton(
+                item_frame,
+                text="X",
+                width=25,
+                command=lambda t=item: self.remove_from_cart(t)
+            )
             remove_button.pack(side="right", padx=5)
 
-    def remove_from_cart(self, item):
-        """ Removes an item from the cart and updates the UI """
-        if item in self.controller.software_cart:
-            self.controller.software_cart.remove(item)
-            self.refresh_cart()  # Refresh UI
-            messagebox.showinfo("Removed", f"'{item}' was removed from the cart.")
+    def remove_from_cart(self, tuple_item):
+        if tuple_item in self.controller.software_cart:
+            self.controller.software_cart.remove(tuple_item)
+            self.refresh_cart()
+            messagebox.showinfo("Removed", f"'{tuple_item[0]}' was removed.")
         else:
-            messagebox.showwarning("Not Found", f"'{item}' is not in the cart.")
+            messagebox.showwarning("Not Found", "Item is not in the cart.")
 
     def on_run_commands(self):
-        """ Runs the installation commands for all selected software """
         if self.controller.software_cart:
             run_commands(self.controller.software_cart)
             messagebox.showinfo("Done", "Commands executed (see console output).")
@@ -301,17 +331,12 @@ class CartPage(ctk.CTkFrame):
             messagebox.showinfo("Empty Cart", "No items to install.")
 
     def on_back(self):
-        """ Navigates back to the previous page """
         self.controller.show_frame("CreatePage")
-        create_page = self.controller.frames["CreatePage"]
-        create_page.update_cart_icon()
-        
-        
+        self.controller.frames["CreatePage"].update_cart_icon()
+
     def tkraise(self, aboveThis=None):
-        """ Overrides tkraise to update cart items dynamically """
         self.refresh_cart()
         super().tkraise(aboveThis)
-
 
 if __name__ == "__main__":
     app = HabitatApp()
