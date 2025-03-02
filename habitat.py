@@ -3,6 +3,9 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import yaml
 import subprocess
+import generate
+import platform
+
 
 ###################################
 # Data Extraction and Command Logic
@@ -329,27 +332,7 @@ class CreatePage(ctk.CTkFrame):
     ###################################
     # Helper Methods
     ###################################
-    def add_custom_item(self):
-        """Adds a custom software package to the cart."""
-        name = self.name_entry.get().strip()
-        version = self.version_entry.get().strip() or "latest"
-        package_manager = self.package_manager_entry.get().strip()
-
-        if not name:
-            messagebox.showwarning("Input Error", "Please enter a software name.")
-            return
-
-        # Construct install command if a package manager is provided
-        command = f"{package_manager} install {name}" if package_manager else ""
-
-        self.controller.add_to_cart(name, version, command)
-
-        # Clear input fields
-        self.name_entry.delete(0, tk.END)
-        self.version_entry.delete(0, tk.END)
-        self.package_manager_entry.delete(0, tk.END)
-
-        self.update_cart_button()
+   
 
     def add_popular_item(self, item):
         """Adds a popular item to the cart."""
@@ -362,6 +345,33 @@ class CreatePage(ctk.CTkFrame):
         """Sets the cart button text to 'Cart (#)'."""
         count = len(self.controller.software_cart)
         self.cart_button.configure(text=f"Cart ({count})")
+    
+    def add_custom_item(self):
+        """Uses Ollama to generate install commands, then adds to cart."""
+        library = self.name_entry.get().strip()
+        version = self.version_entry.get().strip() or "latest"
+        user_os = platform.system()
+        package_manager = self.package_manager_entry.get().strip() or "any package manager"
+
+        if not library:
+            messagebox.showwarning("Input Error", "Please enter Version, Software Name, and Package Manager.")
+            return
+
+        install_commands = generate.generate_install_commands(user_os, library, package_manager, version)
+
+        if isinstance(install_commands, list) and install_commands:
+            install_command_str = " && ".join(install_commands) 
+        else:
+            messagebox.showerror("Error", "Failed to generate install command.")
+            return
+
+        self.controller.add_to_cart(library, version, install_command_str)
+
+        self.version_entry.delete(0, tk.END)
+        self.name_entry.delete(0, tk.END)
+        self.package_manager_entry.delete(0, tk.END)
+
+        self.update_cart_button()
 
 class CartPage(ctk.CTkFrame):
     """
@@ -494,124 +504,6 @@ class CartPage(ctk.CTkFrame):
         self.refresh_cart()
         super().tkraise(aboveThis)
 
-# class CartPage(ctk.CTkFrame):
-#     """
-#     Displays (Name, Version) from the cart with editable version fields.
-#     Updates automatically when a version is changed.
-#     """
-#     def __init__(self, parent, controller):
-#         super().__init__(parent, corner_radius=0, border_width=0, fg_color="transparent")
-#         self.controller = controller
-#         self.version_entries = {}  # Store version entry widgets
-
-#         title_label = ctk.CTkLabel(
-#             self,
-#             text="Shopping Cart",
-#             font=ctk.CTkFont(size=15, weight="bold"),
-#         )
-#         title_label.pack(pady=(10, 6), anchor="center")
-
-#         self.scroll_frame = ctk.CTkScrollableFrame(
-#             self,
-#             width=350,
-#             corner_radius=0,
-#             border_width=0,
-#             fg_color="transparent",
-#         )
-#         self.scroll_frame.pack(padx=10, pady=(0, 6), fill="both", expand=True)
-
-#         bottom_frame = ctk.CTkFrame(self, corner_radius=0, border_width=0, fg_color="transparent")
-#         bottom_frame.pack(fill="x", pady=6)
-
-#         run_button = ctk.CTkButton(
-#             bottom_frame, text="Run", width=60, command=self.on_run_commands
-#         )
-#         run_button.pack(side="right", padx=(0, 20))
-
-#         back_button = ctk.CTkButton(
-#             bottom_frame, text="Back", width=60, command=self.on_back
-#         )
-#         back_button.pack(side="left", padx=(20, 0))
-
-#     def refresh_cart(self):
-#         """Refreshes the cart display with Name + Editable Version."""
-#         for widget in self.scroll_frame.winfo_children():
-#             widget.destroy()
-            
-#         self.version_entries.clear()
-
-#         for idx, item in enumerate(self.controller.software_cart, start=1):
-#             name, version, cmd = item
-            
-#             item_frame = ctk.CTkFrame(
-#                 self.scroll_frame,
-#                 corner_radius=0,
-#                 border_width=0,
-#                 fg_color="transparent"
-#             )
-#             item_frame.pack(fill="x", pady=4, padx=15)
-
-#             # Name label
-#             name_label = ctk.CTkLabel(item_frame, text=f"{idx}. {name}")
-#             name_label.pack(side="left", padx=5)
-            
-#             # Version entry field
-#             version_entry = ctk.CTkEntry(
-#                 item_frame, 
-#                 width=80,
-#                 justify="center"
-#             )
-#             version_entry.insert(0, version)
-#             version_entry.pack(side="left", padx=5)
-            
-#             # Bind focus-out event to auto-update version
-#             version_entry.bind("<FocusOut>", lambda e, i=item, v=version_entry: self.update_version(i, v))
-
-#             # Store the entry widget with reference to the item for updating later
-#             self.version_entries[item] = version_entry
-
-#             # Remove button
-#             remove_button = ctk.CTkButton(
-#                 item_frame, text="X", width=25, command=lambda t=item: self.remove_from_cart(t)
-#             )
-#             remove_button.pack(side="right", padx=5)
-
-#     def update_version(self, item, entry_widget):
-#         """Updates version in cart when an entry loses focus."""
-#         new_version = entry_widget.get().strip() or "latest"
-#         if item in self.controller.software_cart:
-#             name, _, cmd = item
-#             updated_item = (name, new_version, cmd)
-#             index = self.controller.software_cart.index(item)
-#             self.controller.software_cart[index] = updated_item
-#             print(f"Updated '{name}' to version {new_version}")
-
-#     def remove_from_cart(self, tuple_item):
-#         if tuple_item in self.controller.software_cart:
-#             self.controller.software_cart.remove(tuple_item)
-#             self.refresh_cart()
-#             self.controller.frames["CreatePage"].update_cart_button()
-#             messagebox.showinfo("Removed", f"'{tuple_item[0]}' was removed.")
-#         else:
-#             messagebox.showwarning("Not Found", "Item is not in the cart.")
-
-#     def on_run_commands(self):
-#         """Run commands with the latest versions."""
-#         if self.controller.software_cart:
-#             run_commands(self.controller.software_cart)
-#             messagebox.showinfo("Done", "Commands executed (see console output).")
-#         else:
-#             messagebox.showinfo("Empty Cart", "No items to install.")
-
-#     def on_back(self):
-#         """Return to CreatePage with updated versions."""
-#         self.controller.show_frame("CreatePage")
-#         self.controller.frames["CreatePage"].update_cart_button()
-
-#     def tkraise(self, aboveThis=None):
-#         self.refresh_cart()
-#         super().tkraise(aboveThis)
-
 class CartPage(ctk.CTkFrame):
     """
     Displays (Name, Version) from the cart with editable version fields.
@@ -702,8 +594,9 @@ class CartPage(ctk.CTkFrame):
         new_cart = []
         
         # Iterate through current cart and get updated versions
-        for item, (entry_widget, idx) in self.version_entries.items():
-            name, _, cmd = item
+        print("self.version_entries = ", self.version_entries)
+        for item, entry_widget in self.version_entries.items():
+            name, _, cmd = item  # item might be ('Python', '3.10', 'pip install...')
             new_version = entry_widget.get().strip() or "latest"
             new_item = (name, new_version, cmd)
             new_cart.append(new_item)
@@ -731,6 +624,7 @@ class CartPage(ctk.CTkFrame):
             run_commands(self.controller.software_cart)
             messagebox.showinfo("Done", "Commands executed (see console output).")
         else:
+            messagebox.showinfo("Empty Cart", "No items to install.")
             messagebox.showinfo("Empty Cart", "No items to install.")
 
     def on_back(self):

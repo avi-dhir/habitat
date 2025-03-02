@@ -1,13 +1,13 @@
 import ollama
 
-def generate_install_commands(user_os, library, package_manager):
+def generate_install_commands(user_os, library, package_manager, version):
     """
     Uses a locally running DeepSeek model from Ollama to generate install commands.
     """
     prompt = (
         f"You are an assistant that generates terminal commands. "
         f"MAKE SURE to put the $ symbol in front of every command NO MATTER WHAT. "
-        f"MAKE SURE to put the version as latest if it is not provided NO MATTER WHAT. "
+        f"MAKE SURE to put the version as {version} NO MATTER WHAT. "
         f"Provide only the exact commands (one per line) needed to install {library} "
         f"on {user_os} using {package_manager}. Do not include any extra explanation. This should be formatted as lines of text exactly as the appear in terminal with absolultely no other text other than these commands." 
         f"Please do not list with numbers or provide any other text/explanation it should just be the command followed by a new line if there are multiple commands. " 
@@ -29,9 +29,3 @@ def generate_install_commands(user_os, library, package_manager):
     else:
         return "Error: No response from Ollama."
 
-
-
-user_os = "Windows"
-library = "python"
-package_manager = "winget"
-print(generate_install_commands(user_os, library, package_manager))

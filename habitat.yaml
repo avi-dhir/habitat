@@ -1,0 +1,13 @@
+environment:
+  numpy:
+    version: latest
+    install_command: pip3 install numpy
+  Node.js:
+    version: latest
+    install_command: npm install -g node
+  pandas:
+    version: latest
+    install_command: conda install -c anaconda pandas
+  bruno:
+    version: latest
+    install_command: brew install bruno
