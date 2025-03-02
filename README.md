@@ -1,6 +1,6 @@
 # Habitat - Dependency Manager
 
-Habitat is a tool that simplifies the management of software dependencies through a graphical user interface. It allows users to create a list of software dependencies, add them to a cart, and run installation commands in a streamlined process. The software is built with Python's `tkinter` and `customtkinter` for the GUI and utilizes YAML for configuration management.
+Habitat is a tool that simplifies the management of software dependencies through a graphical user interface. It allows users to create a list of software dependencies, add them to a cart, and run installation commands in a streamlined process. The software is built with Python's `tkinter` and `customtkinter` for the GUI and utilizes YAML for configuration management. This project also uses a locally running DeepSeek model from Ollama to generate terminal commands to install software libraries using specified package managers on different operating systems.
 
 ## Features
 
